@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg[binary]
+ortools
+pandas
+pydantic-settings
+pytest
+httpx
+
