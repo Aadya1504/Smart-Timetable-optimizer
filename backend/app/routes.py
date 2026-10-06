@@ -3,10 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from .database import get_db
-from .models import TimetableEntry, TimetableRun
+from .models import Course, TimetableEntry, TimetableRun
 from .optimizer import generate_timetable
 from .schemas import (
     GenerateTimetableResponse,
@@ -21,9 +21,35 @@ router = APIRouter()
 def _assignment_response(entry: TimetableEntry) -> TimetableAssignmentResponse:
     return TimetableAssignmentResponse(
         course_id=entry.course_id,
+        course_code=entry.course.code,
+        course_name=entry.course.name,
+        faculty_id=entry.course.faculty_id,
+        faculty_name=entry.course.faculty.name,
         room_id=entry.room_id,
+        room_name=entry.room.name,
         time_slot_id=entry.time_slot_id,
+        day_of_week=entry.time_slot.day_of_week,
+        start_time=entry.time_slot.start_time,
+        end_time=entry.time_slot.end_time,
         session_number=entry.session_number,
+    )
+
+
+def _entries_for_run(db: Session, run_id: int) -> list[TimetableEntry]:
+    return list(
+        db.scalars(
+            select(TimetableEntry)
+            .options(
+                joinedload(TimetableEntry.course).joinedload(Course.faculty),
+                joinedload(TimetableEntry.room),
+                joinedload(TimetableEntry.time_slot),
+            )
+            .where(TimetableEntry.timetable_run_id == run_id)
+            .order_by(
+                TimetableEntry.course_id,
+                TimetableEntry.session_number,
+            )
+        ).all()
     )
 
 
@@ -63,21 +89,15 @@ def generate_timetable_endpoint(
             for assignment in result.assignments
         ]
         db.add_all(entries)
+        run_id = timetable_run.id
         db.commit()
+        saved_entries = _entries_for_run(db, run_id)
 
         return GenerateTimetableResponse(
-            timetable_run_id=timetable_run.id,
+            timetable_run_id=run_id,
             solver_status=result.status,
-            assignment_count=len(entries),
-            assignments=[
-                TimetableAssignmentResponse(
-                    course_id=assignment.course_id,
-                    room_id=assignment.room_id,
-                    time_slot_id=assignment.time_slot_id,
-                    session_number=assignment.session_number,
-                )
-                for assignment in result.assignments
-            ],
+            assignment_count=len(saved_entries),
+            assignments=[_assignment_response(entry) for entry in saved_entries],
         )
     except SQLAlchemyError:
         db.rollback()
@@ -101,14 +121,7 @@ def get_timetable(
             detail=f"Timetable run {run_id} was not found.",
         )
 
-    entries = db.scalars(
-        select(TimetableEntry)
-        .where(TimetableEntry.timetable_run_id == run_id)
-        .order_by(
-            TimetableEntry.course_id,
-            TimetableEntry.session_number,
-        )
-    ).all()
+    entries = _entries_for_run(db, run_id)
 
     return TimetableRunResponse(
         timetable_run_id=timetable_run.id,
