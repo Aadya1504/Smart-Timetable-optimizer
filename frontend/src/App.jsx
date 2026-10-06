@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const defaultStudentGroups = ["CSE-3A", "CSE-3B", "CSE-4A", "CSE-4B"];
 
 function formatTime(value) {
   const [hourValue, minuteValue] = value.split(":");
@@ -31,6 +32,7 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState("CSE-3A");
 
   async function handleGenerateTimetable() {
     setIsGenerating(true);
@@ -60,6 +62,18 @@ function App() {
       setIsGenerating(false);
     }
   }
+
+  const filteredAssignments = result
+    ? result.assignments.filter(
+        (assignment) => assignment.student_group === selectedGroup,
+      )
+    : [];
+
+  const availableGroups = result
+    ? [...
+        new Set(result.assignments.map((assignment) => assignment.student_group)),
+      ].sort()
+    : defaultStudentGroups;
 
   return (
     <main style={styles.page}>
@@ -125,9 +139,27 @@ function App() {
               <div>
                 <span style={styles.summaryLabel}>Assignments</span>
                 <strong style={styles.summaryValue}>
-                  {result.assignment_count}
+                  {filteredAssignments.length}
                 </strong>
               </div>
+            </div>
+
+            <div style={styles.filterBar}>
+              <label htmlFor="student-group" style={styles.filterLabel}>
+                View batch
+              </label>
+              <select
+                id="student-group"
+                value={selectedGroup}
+                onChange={(event) => setSelectedGroup(event.target.value)}
+                style={styles.groupSelect}
+              >
+                {availableGroups.map((group) => (
+                  <option key={group} value={group}>
+                    {group}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={styles.timetableScroll}>
@@ -144,7 +176,7 @@ function App() {
                   </div>
                 ))}
 
-                {getTimeSlots(result.assignments).map((slot) => (
+                {getTimeSlots(filteredAssignments).map((slot) => (
                   <Fragment key={slot.key}>
                     <div key={`${slot.key}-label`} style={styles.timeCell}>
                       <strong>{formatTime(slot.startTime)}</strong>
@@ -152,7 +184,7 @@ function App() {
                     </div>
 
                     {weekdays.map((day) => {
-                      const cellAssignments = result.assignments.filter(
+                      const cellAssignments = filteredAssignments.filter(
                         (assignment) =>
                           assignment.day_of_week === day &&
                           assignment.start_time === slot.startTime &&
@@ -183,6 +215,9 @@ function App() {
                                 </span>
                                 <span style={styles.classMeta}>
                                   {assignment.room_name}
+                                </span>
+                                <span style={styles.classMeta}>
+                                  {assignment.student_group}
                                 </span>
                               </div>
                             ))
@@ -351,6 +386,26 @@ const styles = {
   summaryValue: {
     color: "#172033",
     fontSize: "20px",
+  },
+  filterBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "20px",
+  },
+  filterLabel: {
+    color: "#3e5878",
+    fontSize: "13px",
+    fontWeight: 700,
+  },
+  groupSelect: {
+    minWidth: "150px",
+    padding: "9px 32px 9px 10px",
+    border: "1px solid #cdd7e4",
+    borderRadius: "5px",
+    backgroundColor: "#ffffff",
+    color: "#26344a",
+    fontSize: "14px",
   },
   timetableScroll: {
     width: "100%",

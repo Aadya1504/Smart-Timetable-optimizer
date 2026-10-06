@@ -9,6 +9,7 @@ class TimetableAssignmentResponse(BaseModel):
     course_id: int
     course_code: str
     course_name: str
+    student_group: str
     faculty_id: int
     faculty_name: str
     room_id: int

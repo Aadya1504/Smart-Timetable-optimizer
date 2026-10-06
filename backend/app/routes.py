@@ -23,6 +23,7 @@ def _assignment_response(entry: TimetableEntry) -> TimetableAssignmentResponse:
         course_id=entry.course_id,
         course_code=entry.course.code,
         course_name=entry.course.name,
+        student_group=entry.course.student_group,
         faculty_id=entry.course.faculty_id,
         faculty_name=entry.course.faculty.name,
         room_id=entry.room_id,
